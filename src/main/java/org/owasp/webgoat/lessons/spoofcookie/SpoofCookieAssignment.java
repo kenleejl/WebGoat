@@ -6,17 +6,16 @@ package org.owasp.webgoat.lessons.spoofcookie;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.informationMessage;
+import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
+import org.owasp.webgoat.lessons.spoofcookie.encoders.EncDec;
 import org.springframework.web.bind.UnsatisfiedServletRequestParameterException;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -37,12 +36,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SpoofCookieAssignment implements AssignmentEndpoint {
 
   private static final String COOKIE_NAME = "spoof_auth";
+  private static final String COOKIE_INFO =
+      "Cookie details for user %s:<br />" + COOKIE_NAME + "=%s";
   private static final String ATTACK_USERNAME = "tom";
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   private static final Map<String, String> users =
       Map.of("webgoat", "webgoat", "admin", "admin", ATTACK_USERNAME, "apasswordfortom");
-  private final Map<String, String> authenticatedSessions = new ConcurrentHashMap<>();
 
   @PostMapping(path = "/SpoofCookie/login")
   @ResponseBody
@@ -61,15 +60,9 @@ public class SpoofCookieAssignment implements AssignmentEndpoint {
   }
 
   @GetMapping(path = "/SpoofCookie/cleanup")
-  public void cleanup(
-      @CookieValue(value = COOKIE_NAME, required = false) String cookieValue,
-      HttpServletResponse response) {
-    if (cookieValue != null) {
-      authenticatedSessions.remove(cookieValue);
-    }
+  public void cleanup(HttpServletResponse response) {
     Cookie cookie = new Cookie(COOKIE_NAME, "");
     cookie.setMaxAge(0);
-    cookie.setPath("/WebGoat");
     response.addCookie(cookie);
   }
 
@@ -83,27 +76,37 @@ public class SpoofCookieAssignment implements AssignmentEndpoint {
 
     String authPassword = users.getOrDefault(lowerCasedUsername, "");
     if (!authPassword.isBlank() && authPassword.equals(password)) {
-      byte[] sessionBytes = new byte[32];
-      SECURE_RANDOM.nextBytes(sessionBytes);
-      String newCookieValue =
-          Base64.getUrlEncoder().withoutPadding().encodeToString(sessionBytes);
-      authenticatedSessions.put(newCookieValue, lowerCasedUsername);
+      String newCookieValue = EncDec.encode(lowerCasedUsername);
       Cookie newCookie = new Cookie(COOKIE_NAME, newCookieValue);
       newCookie.setPath("/WebGoat");
       newCookie.setSecure(true);
       newCookie.setHttpOnly(true);
-      newCookie.setAttribute("SameSite", "Strict");
       response.addCookie(newCookie);
-      return informationMessage(this).feedback("spoofcookie.login").build();
+      return informationMessage(this)
+          .feedback("spoofcookie.login")
+          .output(String.format(COOKIE_INFO, lowerCasedUsername, newCookie.getValue()))
+          .build();
     }
 
     return informationMessage(this).feedback("spoofcookie.wrong-login").build();
   }
 
   private AttackResult cookieLoginFlow(String cookieValue) {
-    String cookieUsername = authenticatedSessions.get(cookieValue);
-    if (cookieUsername != null && users.containsKey(cookieUsername)) {
-      return informationMessage(this).feedback("spoofcookie.cookie-login").build();
+    String cookieUsername;
+    try {
+      cookieUsername = EncDec.decode(cookieValue).toLowerCase();
+    } catch (Exception e) {
+      // for providing some instructive guidance, we won't return 4xx error here
+      return failed(this).output(e.getMessage()).build();
+    }
+    if (users.containsKey(cookieUsername)) {
+      if (cookieUsername.equals(ATTACK_USERNAME)) {
+        return success(this).build();
+      }
+      return failed(this)
+          .feedback("spoofcookie.cookie-login")
+          .output(String.format(COOKIE_INFO, cookieUsername, cookieValue))
+          .build();
     }
 
     return failed(this).feedback("spoofcookie.wrong-cookie").build();
