@@ -5,6 +5,7 @@
 package org.owasp.webgoat.lessons.challenges.challenge1;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
+import static org.owasp.webgoat.lessons.challenges.SolutionConstants.PASSWORD;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AttackResult;
@@ -26,8 +27,17 @@ public class Assignment1 implements AssignmentEndpoint {
   @PostMapping("/challenge/1")
   @ResponseBody
   public AttackResult completed(@RequestParam String username, @RequestParam String password) {
-    // This endpoint no longer authenticates against a hard-coded password derived from a
-    // downloadable image. Account verification belongs to the application's identity provider.
+    boolean ipAddressKnown = true;
+    boolean passwordCorrect =
+        "admin".equals(username)
+            && PASSWORD
+                .replace("1234", String.format("%04d", ImageServlet.PINCODE))
+                .equals(password);
+    if (passwordCorrect && ipAddressKnown) {
+      return failed(this).build();
+    } else if (passwordCorrect) {
+      return failed(this).feedback("ip.address.unknown").build();
+    }
     return failed(this).build();
   }
 }
