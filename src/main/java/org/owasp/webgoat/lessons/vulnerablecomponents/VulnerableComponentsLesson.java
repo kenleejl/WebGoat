@@ -5,6 +5,7 @@
 package org.owasp.webgoat.lessons.vulnerablecomponents;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
+import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import com.thoughtworks.xstream.XStream;
 import org.apache.commons.lang3.StringUtils;
@@ -40,19 +41,21 @@ public class VulnerableComponentsLesson implements AssignmentEndpoint {
                 .replace("> ", ">")
                 .replace(" <", "<");
       }
-      Object parsed = xstream.fromXML(payload);
-      if (parsed == null || parsed.getClass() != ContactImpl.class) {
-        return failed(this).feedback("vulnerable-components.close").build();
-      }
-      contact = (Contact) parsed;
+      contact = (Contact) xstream.fromXML(payload);
     } catch (Exception ex) {
       return failed(this).feedback("vulnerable-components.close").output(ex.getMessage()).build();
     }
 
     try {
-      contact.getFirstName();
+      if (null != contact) {
+        contact.getFirstName(); // trigger the example like
+        // https://x-stream.github.io/CVE-2013-7285.html
+      }
+      if (!(contact instanceof ContactImpl)) {
+        return success(this).feedback("vulnerable-components.success").build();
+      }
     } catch (Exception e) {
-      return failed(this).feedback("vulnerable-components.close").build();
+      return success(this).feedback("vulnerable-components.success").output(e.getMessage()).build();
     }
     return failed(this).feedback("vulnerable-components.fromXML").feedbackArgs(contact).build();
   }
