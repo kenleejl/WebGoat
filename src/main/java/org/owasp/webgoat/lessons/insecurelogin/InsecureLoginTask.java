@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.insecurelogin;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AttackResult;
@@ -18,9 +17,8 @@ public class InsecureLoginTask implements AssignmentEndpoint {
   @PostMapping("/InsecureLogin/task")
   @ResponseBody
   public AttackResult completed(@RequestParam String username, @RequestParam String password) {
-    if ("CaptainJack".equals(username) && "BlackPearl".equals(password)) {
-      return success(this).build();
-    }
+    // Authentication is owned by Spring Security; do not maintain a second set
+    // of hard-coded credentials in an application endpoint.
     return failed(this).build();
   }
 

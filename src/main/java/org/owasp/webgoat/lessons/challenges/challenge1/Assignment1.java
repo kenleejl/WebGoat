@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.challenges.challenge1;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 import static org.owasp.webgoat.lessons.challenges.SolutionConstants.PASSWORD;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
@@ -35,7 +34,7 @@ public class Assignment1 implements AssignmentEndpoint {
                 .replace("1234", String.format("%04d", ImageServlet.PINCODE))
                 .equals(password);
     if (passwordCorrect && ipAddressKnown) {
-      return success(this).feedback("challenge.solved").feedbackArgs(flags.getFlag(1)).build();
+      return failed(this).build();
     } else if (passwordCorrect) {
       return failed(this).feedback("ip.address.unknown").build();
     }

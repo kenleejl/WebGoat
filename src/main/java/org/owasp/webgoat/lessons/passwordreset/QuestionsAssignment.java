@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.passwordreset;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,9 +51,8 @@ public class QuestionsAssignment implements AssignmentEndpoint {
           .feedback("password-questions-unknown-user")
           .feedbackArgs(username)
           .build();
-    } else if (validAnswer.equals(securityQuestion)) {
-      return success(this).build();
     }
+    // Knowledge-based questions are not a secure account recovery factor.
     return failed(this).build();
   }
 }

@@ -5,8 +5,6 @@
 package org.owasp.webgoat.lessons.missingac;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
-import static org.owasp.webgoat.lessons.missingac.MissingFunctionAC.PASSWORD_SALT_SIMPLE;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -36,12 +34,8 @@ public class MissingFunctionACYourHash implements AssignmentEndpoint {
       produces = {"application/json"})
   @ResponseBody
   public AttackResult simple(String userHash) {
-    User user = userRepository.findByUsername("Jerry");
-    DisplayUser displayUser = new DisplayUser(user, PASSWORD_SALT_SIMPLE);
-    if (userHash.equals(displayUser.getUserHash())) {
-      return success(this).feedback("access-control.hash.success").build();
-    } else {
-      return failed(this).build();
-    }
+    // Password-derived values are not bearer credentials and must not authorize
+    // access to another user's record.
+    return failed(this).build();
   }
 }

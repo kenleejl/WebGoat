@@ -12,6 +12,7 @@ import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
 import org.owasp.webgoat.container.session.LessonSession;
 import org.springframework.web.bind.annotation.PostMapping;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,7 +31,10 @@ public class CSRFConfirmFlag1 implements AssignmentEndpoint {
       path = "/csrf/confirm-flag-1",
       produces = {"application/json"})
   @ResponseBody
-  public AttackResult completed(String confirmFlagVal) {
+  public AttackResult completed(String confirmFlagVal, HttpServletRequest request) {
+    if (!SameOriginPolicy.allows(request)) {
+      return failed(this).build();
+    }
     Object userSessionDataStr = userSessionData.getValue("csrf-get-success");
     if (userSessionDataStr != null && confirmFlagVal.equals(userSessionDataStr.toString())) {
       return success(this)

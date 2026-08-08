@@ -9,7 +9,6 @@ import static org.owasp.webgoat.container.assignments.AttackResultBuilder.succes
 import static org.springframework.http.MediaType.ALL_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -44,6 +43,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class ProfileZipSlip extends ProfileUploadBase {
 
+  private static final long MAX_ZIP_SIZE = 5 * 1024 * 1024;
+  private static final long MAX_EXTRACTED_SIZE = 10 * 1024 * 1024;
+
   public ProfileZipSlip(@Value("${webgoat.server.directory}") String webGoatHomeDirectory) {
     super(webGoatHomeDirectory);
   }
@@ -55,7 +57,11 @@ public class ProfileZipSlip extends ProfileUploadBase {
   @ResponseBody
   public AttackResult uploadFileHandler(
       @RequestParam("uploadedFileZipSlip") MultipartFile file, @CurrentUsername String username) {
-    if (!file.getOriginalFilename().toLowerCase().endsWith(".zip")) {
+    var originalFilename = file.getOriginalFilename();
+    if (file.isEmpty()
+        || file.getSize() > MAX_ZIP_SIZE
+        || originalFilename == null
+        || !originalFilename.toLowerCase().endsWith(".zip")) {
       return failed(this).feedback("path-traversal-zip-slip.no-zip").build();
     } else {
       return processZipUpload(file, username);
@@ -69,16 +75,28 @@ public class ProfileZipSlip extends ProfileUploadBase {
     var currentImage = getProfilePictureAsBase64(username);
 
     try {
-      var uploadedZipFile = tmpZipDirectory.resolve(file.getOriginalFilename());
+      var uploadedZipFile = tmpZipDirectory.resolve("upload.zip");
       FileCopyUtils.copy(file.getBytes(), uploadedZipFile.toFile());
 
-      ZipFile zip = new ZipFile(uploadedZipFile.toFile());
-      Enumeration<? extends ZipEntry> entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry e = entries.nextElement();
-        File f = new File(tmpZipDirectory.toFile(), e.getName());
-        InputStream is = zip.getInputStream(e);
-        Files.copy(is, f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      var extractionRoot = tmpZipDirectory.toAbsolutePath().normalize();
+      long extractedSize = 0;
+      try (ZipFile zip = new ZipFile(uploadedZipFile.toFile())) {
+        Enumeration<? extends ZipEntry> entries = zip.entries();
+        while (entries.hasMoreElements()) {
+          ZipEntry e = entries.nextElement();
+          var destination = extractionRoot.resolve(e.getName()).normalize();
+          long entrySize = e.getSize();
+          if (!destination.startsWith(extractionRoot)
+              || e.isDirectory()
+              || entrySize < 0
+              || entrySize > MAX_EXTRACTED_SIZE - extractedSize) {
+            return failed(this).feedback("path-traversal-zip-slip.no-zip").build();
+          }
+          extractedSize += entrySize;
+          try (InputStream is = zip.getInputStream(e)) {
+            Files.copy(is, destination, StandardCopyOption.REPLACE_EXISTING);
+          }
+        }
       }
 
       return isSolved(currentImage, getProfilePictureAsBase64(username));

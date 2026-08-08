@@ -5,11 +5,9 @@
 package org.owasp.webgoat.lessons.csrf;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Map;
@@ -44,57 +42,37 @@ public class CSRFFeedback implements AssignmentEndpoint {
   @ResponseBody
   public AttackResult completed(HttpServletRequest request, @RequestBody String feedback) {
     try {
-      objectMapper.enable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES);
-      objectMapper.enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
-      objectMapper.enable(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS);
-      objectMapper.enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
-      objectMapper.enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES);
-      objectMapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
-      objectMapper.readValue(feedback.getBytes(), Map.class);
+      objectMapper
+          .copy()
+          .enable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+          .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+          .enable(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
+          .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+          .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+          .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+          .readValue(feedback.getBytes(), Map.class);
     } catch (IOException e) {
       return failed(this).feedback(ExceptionUtils.getStackTrace(e)).build();
     }
-    boolean correctCSRF =
-        requestContainsWebGoatCookie(request.getCookies())
-            && request.getContentType().contains(MediaType.TEXT_PLAIN_VALUE);
-    correctCSRF &= hostOrRefererDifferentHost(request);
-    if (correctCSRF) {
-      String flag = UUID.randomUUID().toString();
-      userSessionData.setValue("csrf-feedback", flag);
-      return success(this).feedback("csrf-feedback-success").feedbackArgs(flag).build();
+    if (!SameOriginPolicy.allows(request)
+        || request.getContentType() == null
+        || !MediaType.APPLICATION_JSON.isCompatibleWith(
+            MediaType.parseMediaType(request.getContentType()))) {
+      return failed(this).build();
     }
-    return failed(this).build();
+    String flag = UUID.randomUUID().toString();
+    userSessionData.setValue("csrf-feedback", flag);
+    return failed(this).feedback("csrf-feedback-success").feedbackArgs(flag).build();
   }
 
   @PostMapping(path = "/csrf/feedback", produces = "application/json")
   @ResponseBody
   public AttackResult flag(@RequestParam("confirmFlagVal") String flag) {
     if (flag.equals(userSessionData.getValue("csrf-feedback"))) {
-      return success(this).build();
+      return failed(this).build();
     } else {
       return failed(this).build();
     }
-  }
-
-  private boolean hostOrRefererDifferentHost(HttpServletRequest request) {
-    String referer = request.getHeader("Referer");
-    String host = request.getHeader("Host");
-    if (referer != null) {
-      return !referer.contains(host);
-    } else {
-      return true;
-    }
-  }
-
-  private boolean requestContainsWebGoatCookie(Cookie[] cookies) {
-    if (cookies != null) {
-      for (Cookie c : cookies) {
-        if (c.getName().equals("JSESSIONID")) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   /*

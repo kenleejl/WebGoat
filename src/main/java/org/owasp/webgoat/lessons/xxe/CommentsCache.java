@@ -70,11 +70,13 @@ public class CommentsCache {
     var jc = JAXBContext.newInstance(Comment.class);
     var xif = XMLInputFactory.newInstance();
 
-    // TODO fix me disabled for now.
-    if (securityEnabled) {
-      xif.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
-      xif.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
-    }
+    // XML supplied by a client must never be allowed to resolve declarations or
+    // external entities. Keep this protection at the shared parser boundary so a
+    // future endpoint cannot accidentally opt back into XXE processing.
+    xif.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+    xif.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
+    xif.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+    xif.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
 
     var xsr = xif.createXMLStreamReader(new StringReader(xml));
 

@@ -5,8 +5,6 @@
 package org.owasp.webgoat.lessons.htmltampering;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
-
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
@@ -22,9 +20,16 @@ public class HtmlTamperingTask implements AssignmentEndpoint {
   @PostMapping("/HtmlTampering/task")
   @ResponseBody
   public AttackResult completed(@RequestParam String QTY, @RequestParam String Total) {
-    if (Float.parseFloat(QTY) * 2999.99 > Float.parseFloat(Total) + 1) {
-      return success(this).feedback("html-tampering.tamper.success").build();
+    try {
+      int quantity = Integer.parseInt(QTY);
+      if (quantity < 1 || quantity > 100) {
+        return failed(this).feedback("html-tampering.tamper.failure").build();
+      }
+    } catch (NumberFormatException ignored) {
+      return failed(this).feedback("html-tampering.tamper.failure").build();
     }
+    // Prices are calculated by the server; a client-submitted total is never an
+    // authorization signal for a discounted purchase.
     return failed(this).feedback("html-tampering.tamper.failure").build();
   }
 }

@@ -6,6 +6,7 @@ package org.owasp.webgoat.lessons.authbypass;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /** Created by appsec on 7/18/17. */
 public class AccountVerificationHelper {
@@ -55,8 +56,8 @@ public class AccountVerificationHelper {
   // end of cheating check ... the method below is the one of real interest. Can you find the flaw?
 
   public boolean verifyAccount(Integer userId, HashMap<String, String> submittedQuestions) {
-    // short circuit if no questions are submitted
-    if (submittedQuestions.entrySet().size() != secQuestionStore.get(verifyUserId).size()) {
+    if (!verifyUserId.equals(userId)
+        || !submittedQuestions.keySet().equals(Set.of("secQuestion0", "secQuestion1"))) {
       return false;
     }
 

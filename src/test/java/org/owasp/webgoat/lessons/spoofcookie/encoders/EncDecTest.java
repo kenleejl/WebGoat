@@ -5,15 +5,9 @@
 package org.owasp.webgoat.lessons.spoofcookie.encoders;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
-
-import java.util.stream.Stream;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /***
  *
@@ -23,22 +17,24 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class EncDecTest {
 
-  @ParameterizedTest
-  @DisplayName("Encode test")
-  @MethodSource("providedForEncValues")
-  void testEncode(String decoded, String encoded) {
-    String result = EncDec.encode(decoded);
+  @Test
+  @DisplayName("Signed cookies round trip")
+  void signedCookieRoundTrip() {
+    String encoded = EncDec.encode("webgoat");
 
-    assertThat(result.endsWith(encoded)).isTrue();
+    assertThat(encoded).contains(".");
+    assertThat(EncDec.decode(encoded)).isEqualTo("webgoat");
   }
 
-  @ParameterizedTest
-  @DisplayName("Decode test")
-  @MethodSource("providedForDecValues")
-  void testDecode(String decoded, String encoded) {
-    String result = EncDec.decode(encoded);
+  @Test
+  @DisplayName("Tampered cookies are rejected")
+  void tamperedCookieIsRejected() {
+    String encoded = EncDec.encode("tom");
+    String tampered = encoded.substring(0, encoded.indexOf('.') + 1) + "A";
 
-    assertThat(decoded, is(result));
+    assertThatThrownBy(() -> EncDec.decode(tampered))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Invalid authentication cookie");
   }
 
   @Test
@@ -51,19 +47,5 @@ class EncDecTest {
   @DisplayName("null decode test")
   void testNullDecode() {
     assertThat(EncDec.decode(null)).isNull();
-  }
-
-  private static Stream<Arguments> providedForEncValues() {
-    return Stream.of(
-        Arguments.of("webgoat", "YxNmY2NzYyNjU3Nw=="),
-        Arguments.of("admin", "2ZTY5NmQ2NDYx"),
-        Arguments.of("tom", "2ZDZmNzQ="));
-  }
-
-  private static Stream<Arguments> providedForDecValues() {
-    return Stream.of(
-        Arguments.of("webgoat", "NjI2MTcwNGI3YTQxNGE1OTU2NzQ3NDYxNmY2NzYyNjU3Nw=="),
-        Arguments.of("admin", "NjI2MTcwNGI3YTQxNGE1OTU2NzQ2ZTY5NmQ2NDYx"),
-        Arguments.of("tom", "NjI2MTcwNGI3YTQxNGE1OTU2NzQ2ZDZmNzQ="));
   }
 }

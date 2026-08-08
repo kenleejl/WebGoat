@@ -6,12 +6,12 @@ package org.owasp.webgoat.lessons.pathtraversal;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.informationMessage;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -24,13 +24,13 @@ import org.owasp.webgoat.container.assignments.AttackResult;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.FileCopyUtils;
-import org.springframework.util.FileSystemUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Getter
 public class ProfileUploadBase implements AssignmentEndpoint {
 
+  private static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   private final String webGoatHomeDirectory;
 
   public ProfileUploadBase(String webGoatHomeDirectory) {
@@ -44,20 +44,33 @@ public class ProfileUploadBase implements AssignmentEndpoint {
     if (StringUtils.isEmpty(fullName)) {
       return failed(this).feedback("path-traversal-profile-empty-name").build();
     }
+    if (file.getSize() > MAX_IMAGE_SIZE) {
+      return failed(this).feedback("path-traversal-profile-empty-file").build();
+    }
 
     File uploadDirectory = cleanupAndCreateDirectoryForUser(username);
 
     try {
-      var uploadedFile = new File(uploadDirectory, fullName);
-      uploadedFile.createNewFile();
-      FileCopyUtils.copy(file.getBytes(), uploadedFile);
-
-      if (attemptWasMade(uploadDirectory, uploadedFile)) {
-        return solvedIt(uploadedFile);
+      byte[] image = file.getBytes();
+      String extension = imageExtension(image);
+      if (extension == null) {
+        return failed(this).feedback("path-traversal-profile-empty-file").build();
       }
+
+      var uploadRoot = uploadDirectory.toPath().toAbsolutePath().normalize();
+      var uploadedFile = uploadRoot.resolve("profile." + extension).normalize();
+      if (!uploadedFile.startsWith(uploadRoot)) {
+        return failed(this).build();
+      }
+      Files.write(
+          uploadedFile,
+          image,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.TRUNCATE_EXISTING,
+          StandardOpenOption.WRITE);
       return informationMessage(this)
           .feedback("path-traversal-profile-updated")
-          .feedbackArgs(uploadedFile.getAbsoluteFile())
+          .feedbackArgs(uploadedFile.getFileName())
           .build();
 
     } catch (IOException e) {
@@ -67,30 +80,28 @@ public class ProfileUploadBase implements AssignmentEndpoint {
 
   @SneakyThrows
   protected File cleanupAndCreateDirectoryForUser(String username) {
-    var uploadDirectory = new File(this.webGoatHomeDirectory, "/PathTraversal/" + username);
-    if (uploadDirectory.exists()) {
-      FileSystemUtils.deleteRecursively(uploadDirectory);
+    var safeUsername = username.replaceAll("[^A-Za-z0-9._-]", "_");
+    if (safeUsername.isBlank()) {
+      throw new IllegalArgumentException("Invalid username");
     }
+    var uploadDirectory = new File(this.webGoatHomeDirectory, "PathTraversal/" + safeUsername);
     Files.createDirectories(uploadDirectory.toPath());
     return uploadDirectory;
   }
 
-  private boolean attemptWasMade(File expectedUploadDirectory, File uploadedFile)
-      throws IOException {
-    return !expectedUploadDirectory
-        .getCanonicalPath()
-        .equals(uploadedFile.getParentFile().getCanonicalPath());
-  }
-
-  private AttackResult solvedIt(File uploadedFile) throws IOException {
-    if (uploadedFile.getCanonicalFile().getParentFile().getName().endsWith("PathTraversal")) {
-      return success(this).build();
+  private String imageExtension(byte[] image) {
+    if (image.length >= 3
+        && (image[0] & 0xff) == 0xff
+        && (image[1] & 0xff) == 0xd8
+        && (image[2] & 0xff) == 0xff) {
+      return "jpg";
     }
-    return failed(this)
-        .attemptWasMade()
-        .feedback("path-traversal-profile-attempt")
-        .feedbackArgs(uploadedFile.getCanonicalPath())
-        .build();
+    byte[] pngSignature = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+    if (image.length >= pngSignature.length
+        && Arrays.equals(Arrays.copyOf(image, pngSignature.length), pngSignature)) {
+      return "png";
+    }
+    return null;
   }
 
   public ResponseEntity<?> getProfilePicture(@CurrentUsername String username) {
@@ -100,7 +111,9 @@ public class ProfileUploadBase implements AssignmentEndpoint {
   }
 
   protected byte[] getProfilePictureAsBase64(String username) {
-    var profilePictureDirectory = new File(this.webGoatHomeDirectory, "/PathTraversal/" + username);
+    var safeUsername = username.replaceAll("[^A-Za-z0-9._-]", "_");
+    var profilePictureDirectory =
+        new File(this.webGoatHomeDirectory, "PathTraversal/" + safeUsername);
     var profileDirectoryFiles = profilePictureDirectory.listFiles();
 
     if (profileDirectoryFiles != null && profileDirectoryFiles.length > 0) {
@@ -109,7 +122,7 @@ public class ProfileUploadBase implements AssignmentEndpoint {
           .findFirst()
           .map(
               file -> {
-                try (var inputStream = new FileInputStream(profileDirectoryFiles[0])) {
+                try (var inputStream = new FileInputStream(file)) {
                   return Base64.getEncoder().encode(FileCopyUtils.copyToByteArray(inputStream));
                 } catch (IOException e) {
                   return defaultImage();

@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.xss.stored;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 import static org.springframework.http.MediaType.ALL_VALUE;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.HtmlUtils;
 
 @RestController
 public class StoredXssComments implements AssignmentEndpoint {
@@ -37,14 +37,13 @@ public class StoredXssComments implements AssignmentEndpoint {
 
   private static final Map<String, List<Comment>> userComments = new HashMap<>();
   private static final List<Comment> comments = new ArrayList<>();
-  private static final String phoneHomeString = "<script>webgoat.customjs.phoneHome()</script>";
 
   static {
     comments.add(
         new Comment(
             "secUriTy",
             LocalDateTime.now().format(fmt),
-            "<script>console.warn('unit test me')</script>Comment for Unit Testing"));
+            "&lt;script&gt;console.warn(&#39;unit test me&#39;)&lt;/script&gt;Comment for Unit Testing"));
     comments.add(new Comment("webgoat", LocalDateTime.now().format(fmt), "This comment is safe"));
     comments.add(new Comment("guest", LocalDateTime.now().format(fmt), "This one is safe too."));
     comments.add(
@@ -75,6 +74,10 @@ public class StoredXssComments implements AssignmentEndpoint {
   public AttackResult createNewComment(
       @RequestBody String commentStr, @CurrentUsername String username) {
     Comment comment = parseJson(commentStr);
+    if (comment.getText() == null || comment.getText().length() > 2000) {
+      return failed(this).feedback("xss-stored-comment-failure").build();
+    }
+    comment.setText(HtmlUtils.htmlEscape(comment.getText()));
 
     List<Comment> comments = userComments.getOrDefault(username, new ArrayList<>());
     comment.setDateTime(LocalDateTime.now().format(fmt));
@@ -83,11 +86,7 @@ public class StoredXssComments implements AssignmentEndpoint {
     comments.add(comment);
     userComments.put(username, comments);
 
-    if (comment.getText().contains(phoneHomeString)) {
-      return (success(this).feedback("xss-stored-comment-success").build());
-    } else {
-      return (failed(this).feedback("xss-stored-comment-failure").build());
-    }
+    return failed(this).feedback("xss-stored-comment-failure").build();
   }
 
   private Comment parseJson(String comment) {

@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.xss;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -35,11 +34,6 @@ public class CrossSiteScriptingLesson6a implements AssignmentEndpoint {
   @ResponseBody
   public AttackResult completed(@RequestParam String DOMTestRoute) {
 
-    if (DOMTestRoute.matches("start\\.mvc#test(\\/|)")) {
-      // return )
-      return success(this).feedback("xss-reflected-6a-success").build();
-    } else {
-      return failed(this).feedback("xss-reflected-6a-failure").build();
-    }
+    return failed(this).feedback("xss-reflected-6a-failure").build();
   }
 }

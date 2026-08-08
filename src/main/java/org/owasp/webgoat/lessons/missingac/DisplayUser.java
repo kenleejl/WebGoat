@@ -4,6 +4,7 @@
  */
 package org.owasp.webgoat.lessons.missingac;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -15,6 +16,7 @@ public class DisplayUser {
 
   private final String username;
   private final boolean admin;
+  @JsonIgnore
   private String userHash;
 
   public DisplayUser(User user, String passwordSalt) {

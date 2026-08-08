@@ -5,7 +5,6 @@
 package org.owasp.webgoat.lessons.bypassrestrictions;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AttackResult;
@@ -59,6 +58,6 @@ public class BypassRestrictionsFrontendValidation implements AssignmentEndpoint 
     if (field7.matches(regex7)) {
       return failed(this).build();
     }
-    return success(this).build();
+    return failed(this).build();
   }
 }

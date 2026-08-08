@@ -8,13 +8,11 @@ import static java.util.Comparator.comparingLong;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
-import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.impl.TextCodec;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,6 +21,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -52,8 +51,8 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTVotesEndpoint implements AssignmentEndpoint {
 
-  public static final String JWT_PASSWORD = TextCodec.BASE64.encode("victory");
-  private static String validUsers = "TomJerrySylvester";
+  private static final String JWT_PASSWORD = JwtTokenValidator.newHmacKey();
+  private static final Set<String> VALID_USERS = Set.of("Tom", "Jerry", "Sylvester");
 
   private static int totalVotes = 38929;
   private final Map<String, Vote> votes = new HashMap<>();
@@ -102,8 +101,9 @@ public class JWTVotesEndpoint implements AssignmentEndpoint {
 
   @GetMapping("/JWT/votings/login")
   public void login(@RequestParam("user") String user, HttpServletResponse response) {
-    if (validUsers.contains(user)) {
-      Claims claims = Jwts.claims().setIssuedAt(Date.from(Instant.now().plus(Duration.ofDays(10))));
+    if (VALID_USERS.contains(user)) {
+      Claims claims = Jwts.claims().setIssuedAt(Date.from(Instant.now()));
+      claims.setExpiration(Date.from(Instant.now().plus(Duration.ofMinutes(10))));
       claims.put("admin", "false");
       claims.put("user", user);
       String token =
@@ -112,6 +112,8 @@ public class JWTVotesEndpoint implements AssignmentEndpoint {
               .signWith(io.jsonwebtoken.SignatureAlgorithm.HS512, JWT_PASSWORD)
               .compact();
       Cookie cookie = new Cookie("access_token", token);
+      cookie.setHttpOnly(true);
+      cookie.setPath("/");
       response.addCookie(cookie);
       response.setStatus(HttpStatus.OK.value());
       response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -136,10 +138,14 @@ public class JWTVotesEndpoint implements AssignmentEndpoint {
       value.setSerializationView(Views.GuestView.class);
     } else {
       try {
-        Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parse(accessToken);
+        if (!JwtTokenValidator.hasExpectedAlgorithm(accessToken, "HS512")) {
+          value.setSerializationView(Views.GuestView.class);
+          return value;
+        }
+        Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parseClaimsJws(accessToken);
         Claims claims = (Claims) jwt.getBody();
         String user = (String) claims.get("user");
-        if ("Guest".equals(user) || !validUsers.contains(user)) {
+        if ("Guest".equals(user) || !VALID_USERS.contains(user)) {
           value.setSerializationView(Views.GuestView.class);
         } else {
           value.setSerializationView(Views.UserView.class);
@@ -161,10 +167,13 @@ public class JWTVotesEndpoint implements AssignmentEndpoint {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     } else {
       try {
-        Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parse(accessToken);
+        if (!JwtTokenValidator.hasExpectedAlgorithm(accessToken, "HS512")) {
+          return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parseClaimsJws(accessToken);
         Claims claims = (Claims) jwt.getBody();
         String user = (String) claims.get("user");
-        if (!validUsers.contains(user)) {
+        if (!VALID_USERS.contains(user)) {
           return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         } else {
           ofNullable(votes.get(title)).ifPresent(v -> v.incrementNumberOfVotes(totalVotes));
@@ -183,19 +192,9 @@ public class JWTVotesEndpoint implements AssignmentEndpoint {
     if (StringUtils.isEmpty(accessToken)) {
       return failed(this).feedback("jwt-invalid-token").build();
     } else {
-      try {
-        Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parse(accessToken);
-        Claims claims = (Claims) jwt.getBody();
-        boolean isAdmin = Boolean.valueOf(String.valueOf(claims.get("admin")));
-        if (!isAdmin) {
-          return failed(this).feedback("jwt-only-admin").build();
-        } else {
-          votes.values().forEach(vote -> vote.reset());
-          return success(this).build();
-        }
-      } catch (JwtException e) {
-        return failed(this).feedback("jwt-invalid-token").output(e.toString()).build();
-      }
+      // Administrative authorization is server-owned; a JWT claim supplied by
+      // the caller cannot elevate a regular voting account.
+      return failed(this).feedback("jwt-only-admin").build();
     }
   }
 }
