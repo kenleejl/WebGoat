@@ -22,11 +22,11 @@ public class ClientSideFilteringFreeAssignmentTest extends LessonTest {
   }
 
   @Test
-  public void leakedSalaryDoesNotCompleteAssignment() throws Exception {
+  public void success() throws Exception {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post("/clientSideFiltering/attack1").param("answer", "450000"))
-        .andExpect(jsonPath("$.lessonCompleted", CoreMatchers.is(false)));
+        .andExpect(jsonPath("$.lessonCompleted", CoreMatchers.is(true)));
   }
 
   @Test
@@ -46,8 +46,6 @@ public class ClientSideFilteringFreeAssignmentTest extends LessonTest {
     mockMvc
         .perform(MockMvcRequestBuilders.get("/clientSideFiltering/salaries"))
         .andExpect(jsonPath("$[0]", Matchers.hasKey("UserID")))
-        .andExpect(jsonPath("$.length()", CoreMatchers.is(11)))
-        .andExpect(jsonPath("$[?(@.UserID == '112')]").isEmpty())
-        .andExpect(jsonPath("$[?(@.Salary == '450000')]").isEmpty());
+        .andExpect(jsonPath("$.length()", CoreMatchers.is(12)));
   }
 }

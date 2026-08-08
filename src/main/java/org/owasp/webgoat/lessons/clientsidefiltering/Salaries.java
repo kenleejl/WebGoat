@@ -33,8 +33,6 @@ import org.xml.sax.InputSource;
 @Slf4j
 public class Salaries {
 
-  private static final String CEO_USER_ID = "112";
-
   @Value("${webgoat.user.directory}")
   private String webGoatHomeDirectory;
 
@@ -91,9 +89,6 @@ public class Salaries {
     } catch (IOException e) {
       log.error("Unable to read employees.xml at location: '{}'", d);
     }
-    // The UI is not an authorization boundary.  Filter the confidential CEO record before any
-    // employee data is serialized to the client.
-    json.removeIf(employee -> CEO_USER_ID.equals(employee.get("UserID")));
     return json;
   }
 }

@@ -5,6 +5,7 @@
 package org.owasp.webgoat.lessons.clientsidefiltering;
 
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
+import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -26,8 +27,8 @@ public class ClientSideFilteringAssignment implements AssignmentEndpoint {
   @PostMapping("/clientSideFiltering/attack1")
   @ResponseBody
   public AttackResult completed(@RequestParam String answer) {
-    // Knowledge of a confidential value is not proof of authorization.  Never turn the former
-    // client-side disclosure into an authorization success on the server.
-    return failed(this).feedback("ClientSideFiltering.incorrect").build();
+    return "450000".equals(answer)
+        ? success(this).feedback("assignment.solved").build()
+        : failed(this).feedback("ClientSideFiltering.incorrect").build();
   }
 }
