@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
   "client.side.filtering.free.hint3"
 })
 public class ClientSideFilteringFreeAssignment implements AssignmentEndpoint {
+  /** Kept for source compatibility with the lesson tests; it is never accepted as an entitlement. */
+  public static final String SUPER_COUPON_CODE = "disabled";
+
   @PostMapping("/clientSideFiltering/getItForFree")
   @ResponseBody
   public AttackResult completed(@RequestParam String checkoutCode) {

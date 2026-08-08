@@ -32,7 +32,7 @@ public class JWTSecretKeyEndpoint implements AssignmentEndpoint {
   public static final String[] SECRETS = {
     "victory", "business", "available", "shipping", "washington"
   };
-  private static final String JWT_SECRET = JwtTokenValidator.newHmacKey();
+  public static final String JWT_SECRET = JwtTokenValidator.newHmacKey();
   private static final String WEBGOAT_USER = "WebGoat";
   private static final List<String> expectedClaims =
       List.of("iss", "iat", "exp", "aud", "sub", "username", "Email", "Role");

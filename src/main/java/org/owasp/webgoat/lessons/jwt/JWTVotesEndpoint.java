@@ -51,7 +51,7 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTVotesEndpoint implements AssignmentEndpoint {
 
-  private static final String JWT_PASSWORD = JwtTokenValidator.newHmacKey();
+  public static final String JWT_PASSWORD = JwtTokenValidator.newHmacKey();
   private static final Set<String> VALID_USERS = Set.of("Tom", "Jerry", "Sylvester");
 
   private static int totalVotes = 38929;
