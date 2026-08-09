@@ -29,15 +29,14 @@ public class IDORViewOwnProfile {
   public Map<String, Object> invoke() {
     Map<String, Object> details = new HashMap<>();
     try {
-      if (userSessionData.getValue("idor-authenticated-as").equals("tom")) {
+      Object authenticatedAs = userSessionData.getValue("idor-authenticated-as");
+      if ("tom".equals(authenticatedAs)) {
         // going to use session auth to view this one
         String authUserId = (String) userSessionData.getValue("idor-authenticated-user-id");
         UserProfile userProfile = new UserProfile(authUserId);
-        details.put("userId", userProfile.getUserId());
         details.put("name", userProfile.getName());
         details.put("color", userProfile.getColor());
         details.put("size", userProfile.getSize());
-        details.put("role", userProfile.getRole());
       } else {
         details.put(
             "error",

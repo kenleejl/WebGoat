@@ -46,11 +46,9 @@ public class UserProfile {
 
   public Map<String, Object> profileToMap() {
     Map<String, Object> profileMap = new HashMap<>();
-    profileMap.put("userId", this.userId);
     profileMap.put("name", this.name);
     profileMap.put("color", this.color);
     profileMap.put("size", this.size);
-    profileMap.put("role", this.role);
     return profileMap;
   }
 
