@@ -159,6 +159,19 @@ public class JWTRefreshEndpointTest extends LessonTest {
   }
 
   @Test
+  void sourceVisibleLegacyCredentialShouldNotAuthenticate() throws Exception {
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    var loginJson = Map.of("user", "Jerry", "password", "bm5nhSkxCXZkKRy4");
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/JWT/refresh/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginJson)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   void loginShouldNotWorkForTom() throws Exception {
     ObjectMapper objectMapper = new ObjectMapper();
 

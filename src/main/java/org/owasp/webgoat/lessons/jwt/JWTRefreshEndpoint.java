@@ -12,6 +12,8 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,9 +39,15 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTRefreshEndpoint implements AssignmentEndpoint {
 
-  public static final String PASSWORD = "bm5nhSkxCXZkKRy4";
+  public static final String PASSWORD = generateLoginPassword();
   private static final String JWT_PASSWORD = JwtTokenValidator.newHmacKey();
   private static final Map<String, String> validRefreshTokens = new ConcurrentHashMap<>();
+
+  private static String generateLoginPassword() {
+    byte[] password = new byte[24];
+    new SecureRandom().nextBytes(password);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(password);
+  }
 
   @PostMapping(
       value = "/JWT/refresh/login",
