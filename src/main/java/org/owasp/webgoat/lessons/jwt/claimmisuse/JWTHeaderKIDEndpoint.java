@@ -12,7 +12,7 @@ import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolverAdapter;
-import io.jsonwebtoken.impl.TextCodec;
+import java.security.SecureRandom;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.apache.commons.lang3.StringUtils;
@@ -38,10 +38,19 @@ import org.springframework.web.bind.annotation.RestController;
 })
 @RequestMapping("/JWT/")
 public class JWTHeaderKIDEndpoint implements AssignmentEndpoint {
+  private static final String KEY_QUERY = "SELECT key FROM jwt_keys WHERE id = ?";
+  private static final byte[] SIGNING_KEY = generateSigningKey();
+
   private final LessonDataSource dataSource;
 
   private JWTHeaderKIDEndpoint(LessonDataSource dataSource) {
     this.dataSource = dataSource;
+  }
+
+  private static byte[] generateSigningKey() {
+    byte[] key = new byte[64];
+    new SecureRandom().nextBytes(key);
+    return key;
   }
 
   @PostMapping("kid/follow/{user}")
@@ -70,13 +79,15 @@ public class JWTHeaderKIDEndpoint implements AssignmentEndpoint {
                         if (!"webgoat_key".equals(kid)) {
                           return null;
                         }
-                        try (var connection = dataSource.getConnection()) {
-                          var statement =
-                              connection.prepareStatement("SELECT key FROM jwt_keys WHERE id = ?");
+                        try (var connection = dataSource.getConnection();
+                            var statement = connection.prepareStatement(KEY_QUERY)) {
                           statement.setString(1, kid);
-                          ResultSet rs = statement.executeQuery();
-                          while (rs.next()) {
-                            return TextCodec.BASE64.decode(rs.getString(1));
+                          try (ResultSet rs = statement.executeQuery()) {
+                            if (rs.next()) {
+                              // The database only identifies a known key id. The repository-seeded
+                              // value is public and must never be trusted as verification material.
+                              return SIGNING_KEY.clone();
+                            }
                           }
                         } catch (SQLException e) {
                           errorMessage[0] = e.getMessage();
@@ -98,7 +109,7 @@ public class JWTHeaderKIDEndpoint implements AssignmentEndpoint {
         } else {
           return failed(this).feedback("jwt-final-not-tom").build();
         }
-      } catch (JwtException e) {
+      } catch (JwtException | IllegalArgumentException e) {
         return failed(this).feedback("jwt-invalid-token").output(e.toString()).build();
       }
     }

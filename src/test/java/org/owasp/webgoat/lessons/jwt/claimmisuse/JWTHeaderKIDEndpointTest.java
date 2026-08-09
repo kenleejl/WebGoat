@@ -50,14 +50,13 @@ public class JWTHeaderKIDEndpointTest extends LessonTest {
   }
 
   @Test
-  public void withJerrysKeyShouldNotSolveAssignment() throws Exception {
+  public void repositorySeededKeyShouldBeRejected() throws Exception {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post("/JWT/kid/delete").param("token", TOKEN_JERRY).content(""))
         .andExpect(status().isOk())
         .andExpect(
-            jsonPath(
-                "$.feedback", CoreMatchers.is(messages.getMessage("jwt-final-jerry-account"))));
+            jsonPath("$.feedback", CoreMatchers.is(messages.getMessage("jwt-invalid-token"))));
   }
 
   @Test
