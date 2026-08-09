@@ -4,7 +4,6 @@
  */
 package org.owasp.webgoat.lessons.challenges.challenge8;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -16,7 +15,6 @@ import org.owasp.webgoat.lessons.challenges.Flags;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,13 +36,12 @@ public class Assignment8 implements AssignmentEndpoint {
 
   private final Flags flags;
 
-  @PostMapping(value = "/challenge/8/vote/{stars}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(value = "/challenge/8/vote/{stars}", produces = MediaType.APPLICATION_JSON_VALUE)
   @ResponseBody
-  public ResponseEntity<?> vote(
-      @PathVariable(value = "stars") int nrOfStars, HttpServletRequest request) {
-    Integer allVotesForStar = votes.getOrDefault(nrOfStars, 0);
-    votes.put(nrOfStars, allVotesForStar + 1);
-    return ResponseEntity.accepted().build();
+  public ResponseEntity<?> vote(@PathVariable(value = "stars") int nrOfStars) {
+    var json =
+        Map.of("error", true, "message", "Sorry but you need to login first in order to vote");
+    return ResponseEntity.ok(json);
   }
 
   @GetMapping("/challenge/8/votes/")
